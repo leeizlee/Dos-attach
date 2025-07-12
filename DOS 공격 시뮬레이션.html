@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOS 공격 방어 시뮬레이터</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #161b22;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 1px solid #30363d;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #58a6ff;
+            text-shadow: 0 0 20px rgba(88, 166, 255, 0.3);
+            margin-bottom: 30px;
+            font-weight: 600;
+        }
+        
+        .server-status {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding: 16px;
+            background: #21262d;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+        }
+        
+        .status-item {
+            text-align: center;
+            color: #8b949e;
+        }
+        
+        .status-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #58a6ff;
+            margin-top: 4px;
+        }
+        
+        .status-critical {
+            color: #f85149;
+            animation: blink 1s infinite;
+        }
+        
+        .status-warning {
+            color: #d29922;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.4; }
+        }
+        
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 18px;
+            background: #21262d;
+            color: #58a6ff;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+            box-shadow: 0 0 12px rgba(88, 166, 255, 0.2);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .defense-button {
+            background: #21262d;
+            color: #f79000;
+            border-color: #30363d;
+        }
+        
+        .defense-button:hover {
+            background: #30363d;
+            border-color: #f79000;
+            box-shadow: 0 0 12px rgba(247, 144, 0, 0.2);
+        }
+        
+        .log-container {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            height: 300px;
+            overflow-y: auto;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+        }
+        
+        .log-entry {
+            margin: 3px 0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            line-height: 1.4;
+        }
+        
+        .log-normal { color: #7dd3fc; }
+        .log-warning { color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
+        .log-critical { color: #f87171; background: rgba(248, 113, 113, 0.1); }
+        .log-defense { color: #fb923c; background: rgba(251, 146, 60, 0.1); }
+        
+        .progress-bar {
+            width: 100%;
+            height: 24px;
+            background: #21262d;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 16px 0;
+            border: 1px solid #30363d;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #f59e0b, #ef4444);
+            transition: width 0.3s;
+            border-radius: 12px;
+        }
+        
+        .info-panel {
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            color: #8b949e;
+        }
+        
+        .info-panel h3 {
+            color: #58a6ff;
+            margin-top: 0;
+        }
+        
+        .info-panel ul {
+            color: #c9d1d9;
+        }
+        
+        .defense-status {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .defense-item {
+            flex: 1;
+            text-align: center;
+            padding: 12px;
+            background: #21262d;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            color: #8b949e;
+            transition: all 0.2s;
+        }
+        
+        .defense-item div:first-child {
+            font-weight: 600;
+            color: #c9d1d9;
+            margin-bottom: 4px;
+        }
+        
+        .defense-active {
+            border-color: #f79000;
+            background: rgba(247, 144, 0, 0.1);
+            color: #f79000;
+        }
+        
+        .defense-active div:first-child {
+            color: #f79000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛡️ DOS 공격 방어 시뮬레이터</h1>
+        
+        <div class="server-status">
+            <div class="status-item">
+                <div>CPU 사용률</div>
+                <div class="status-value" id="cpu">15%</div>
+            </div>
+            <div class="status-item">
+                <div>메모리 사용률</div>
+                <div class="status-value" id="memory">32%</div>
+            </div>
+            <div class="status-item">
+                <div>네트워크 트래픽</div>
+                <div class="status-value" id="traffic">Low</div>
+            </div>
+            <div class="status-item">
+                <div>활성 연결</div>
+                <div class="status-value" id="connections">24</div>
+            </div>
+            <div class="status-item">
+                <div>서버 상태</div>
+                <div class="status-value" id="server-status">정상</div>
+            </div>
+        </div>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="load-progress" style="width: 15%"></div>
+        </div>
+        
+        <div class="defense-status">
+            <div class="defense-item" id="rate-limit">
+                <div>Rate Limiting</div>
+                <div>비활성</div>
+            </div>
+            <div class="defense-item" id="firewall">
+                <div>방화벽</div>
+                <div>비활성</div>
+            </div>
+            <div class="defense-item" id="load-balancer">
+                <div>로드 밸런서</div>
+                <div>비활성</div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button onclick="simulateTraffic()">일반 트래픽 증가</button>
+            <button onclick="simulateDOS()">DOS 공격 시뮬레이션</button>
+            <button onclick="simulateDDoS()">DDoS 공격 시뮬레이션</button>
+            <button class="defense-button" onclick="activateRateLimit()">Rate Limiting 활성화</button>
+            <button class="defense-button" onclick="activateFirewall()">방화벽 활성화</button>
+            <button class="defense-button" onclick="activateLoadBalancer()">로드 밸런싱 활성화</button>
+            <button onclick="resetServer()">서버 재시작</button>
+        </div>
+        
+        <div class="log-container" id="log-container">
+            <div class="log-entry log-normal">[시작] 서버 모니터링 시작됨</div>
+            <div class="log-entry log-normal">[정보] 모든 시스템 정상 작동 중</div>
+        </div>
+        
+
+    </div>
+
+    <script>
+        let serverLoad = 15;
+        let attackInProgress = false;
+        let defenses = {
+            rateLimit: false,
+            firewall: false,
+            loadBalancer: false
+        };
+        
+        function updateServerStatus() {
+            const cpu = Math.min(serverLoad + Math.random() * 10, 100);
+            const memory = Math.min(serverLoad * 0.8 + Math.random() * 15, 100);
+            const connections = Math.floor(serverLoad * 2 + Math.random() * 20);
+            
+            document.getElementById('cpu').textContent = Math.floor(cpu) + '%';
+            document.getElementById('memory').textContent = Math.floor(memory) + '%';
+            document.getElementById('connections').textContent = connections;
+            document.getElementById('load-progress').style.width = cpu + '%';
+            
+            // 서버 상태 업데이트
+            const cpuElement = document.getElementById('cpu');
+            const memoryElement = document.getElementById('memory');
+            const statusElement = document.getElementById('server-status');
+            
+            if (cpu > 90) {
+                cpuElement.className = 'status-value status-critical';
+                statusElement.textContent = '위험';
+                statusElement.className = 'status-value status-critical';
+            } else if (cpu > 70) {
+                cpuElement.className = 'status-value status-warning';
+                statusElement.textContent = '경고';
+                statusElement.className = 'status-value status-warning';
+            } else {
+                cpuElement.className = 'status-value';
+                statusElement.textContent = '정상';
+                statusElement.className = 'status-value';
+            }
+            
+            // 트래픽 상태
+            const trafficElement = document.getElementById('traffic');
+            if (serverLoad > 80) {
+                trafficElement.textContent = 'Critical';
+                trafficElement.className = 'status-value status-critical';
+            } else if (serverLoad > 50) {
+                trafficElement.textContent = 'High';
+                trafficElement.className = 'status-value status-warning';
+            } else {
+                trafficElement.textContent = 'Normal';
+                trafficElement.className = 'status-value';
+            }
+        }
+        
+        function addLog(message, type = 'normal') {
+            const logContainer = document.getElementById('log-container');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        function simulateTraffic() {
+            addLog('일반 트래픽 증가 시뮬레이션 시작', 'normal');
+            serverLoad = Math.min(serverLoad + 20, 60);
+            
+            setTimeout(() => {
+                serverLoad = Math.max(serverLoad - 15, 15);
+                addLog('트래픽 정상화됨', 'normal');
+            }, 5000);
+        }
+        
+        function simulateDOS() {
+            if (attackInProgress) return;
+            
+            attackInProgress = true;
+            addLog('⚠️ DOS 공격 감지! 단일 소스에서 대량 요청', 'critical');
+            
+            let attackStrength = defenses.rateLimit ? 30 : 60;
+            if (defenses.firewall) attackStrength *= 0.5;
+            if (defenses.loadBalancer) attackStrength *= 0.7;
+            
+            const attackInterval = setInterval(() => {
+                serverLoad = Math.min(serverLoad + attackStrength, 100);
+                
+                if (serverLoad > 95) {
+                    addLog('🚨 서버 과부하! 서비스 중단 위험', 'critical');
+                } else if (serverLoad > 80) {
+                    addLog('서버 부하 증가 중...', 'warning');
+                }
+                
+                if (defenses.rateLimit && Math.random() > 0.3) {
+                    addLog('Rate Limiting이 요청을 차단함', 'defense');
+                }
+                
+                if (defenses.firewall && Math.random() > 0.4) {
+                    addLog('방화벽이 악성 IP를 차단함', 'defense');
+                }
+                
+                attackStrength *= 0.9; // 공격 강도 감소
+                
+                if (attackStrength < 5) {
+                    clearInterval(attackInterval);
+                    attackInProgress = false;
+                    addLog('DOS 공격 종료', 'normal');
+                    
+                    // 서버 부하 점진적 감소
+                    const recoveryInterval = setInterval(() => {
+                        serverLoad = Math.max(serverLoad - 10, 15);
+                        if (serverLoad <= 20) {
+                            clearInterval(recoveryInterval);
+                            addLog('서버 정상 상태로 복구', 'normal');
+                        }
+                    }, 1000);
+                }
+            }, 1000);
+        }
+        
+        function simulateDDoS() {
+            if (attackInProgress) return;
+            
+            attackInProgress = true;
+            addLog('🚨 DDoS 공격 감지! 다중 소스에서 분산 공격', 'critical');
+            
+            let attackStrength = defenses.firewall ? 40 : 80;
+            if (defenses.rateLimit) attackStrength *= 0.6;
+            if (defenses.loadBalancer) attackStrength *= 0.4;
+            
+            const attackInterval = setInterval(() => {
+                serverLoad = Math.min(serverLoad + attackStrength, 100);
+                
+                if (serverLoad > 95) {
+                    addLog('🚨 서버 완전 과부하! 서비스 중단!', 'critical');
+                } else if (serverLoad > 85) {
+                    addLog('심각한 서버 부하 상태', 'critical');
+                }
+                
+                if (defenses.loadBalancer && Math.random() > 0.2) {
+                    addLog('로드 밸런서가 트래픽을 분산시킴', 'defense');
+                }
+                
+                attackStrength *= 0.85;
+                
+                if (attackStrength < 10) {
+                    clearInterval(attackInterval);
+                    attackInProgress = false;
+                    addLog('DDoS 공격 종료', 'normal');
+                    
+                    const recoveryInterval = setInterval(() => {
+                        serverLoad = Math.max(serverLoad - 15, 15);
+                        if (serverLoad <= 25) {
+                            clearInterval(recoveryInterval);
+                            addLog('서버 정상 상태로 복구', 'normal');
+                        }
+                    }, 1000);
+                }
+            }, 800);
+        }
+        
+        function activateRateLimit() {
+            defenses.rateLimit = !defenses.rateLimit;
+            const element = document.getElementById('rate-limit');
+            
+            if (defenses.rateLimit) {
+                element.classList.add('defense-active');
+                element.children[1].textContent = '활성';
+                addLog('Rate Limiting 활성화됨', 'defense');
+            } else {
+                element.classList.remove('defense-active');
+                element.children[1].textContent = '비활성';
+                addLog('Rate Limiting 비활성화됨', 'normal');
+            }
+        }
+        
+        function activateFirewall() {
+            defenses.firewall = !defenses.firewall;
+            const element = document.getElementById('firewall');
+            
+            if (defenses.firewall) {
+                element.classList.add('defense-active');
+                element.children[1].textContent = '활성';
+                addLog('방화벽 활성화됨', 'defense');
+            } else {
+                element.classList.remove('defense-active');
+                element.children[1].textContent = '비활성';
+                addLog('방화벽 비활성화됨', 'normal');
+            }
+        }
+        
+        function activateLoadBalancer() {
+            defenses.loadBalancer = !defenses.loadBalancer;
+            const element = document.getElementById('load-balancer');
+            
+            if (defenses.loadBalancer) {
+                element.classList.add('defense-active');
+                element.children[1].textContent = '활성';
+                addLog('로드 밸런서 활성화됨', 'defense');
+            } else {
+                element.classList.remove('defense-active');
+                element.children[1].textContent = '비활성';
+                addLog('로드 밸런서 비활성화됨', 'normal');
+            }
+        }
+        
+        function resetServer() {
+            serverLoad = 15;
+            attackInProgress = false;
+            addLog('서버 재시작됨', 'normal');
+            addLog('모든 시스템 정상 작동 중', 'normal');
+        }
+        
+        // 1초마다 서버 상태 업데이트
+        setInterval(updateServerStatus, 1000);
+        
+        // 초기 상태 설정
+        updateServerStatus();
+    </script>
+</body>
+</html>
